@@ -1,0 +1,4 @@
+# Optional dependencies for regenerating the bundled sounds.
+# Only needed to run: python tools/generate_sounds.py
+numpy>=1.26,<3.0
+scipy>=1.11,<2.0

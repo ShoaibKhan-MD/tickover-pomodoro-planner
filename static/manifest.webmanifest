@@ -1,0 +1,31 @@
+{
+  "id": "./",
+  "name": "Tickover: Pomodoro Planner",
+  "short_name": "Tickover",
+  "description": "A local-first, schedule-aware Pomodoro timer with an API for AI agents.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#5e1f36",
+  "theme_color": "#a23f5c",
+  "icons": [
+    {
+      "src": "static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "static/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

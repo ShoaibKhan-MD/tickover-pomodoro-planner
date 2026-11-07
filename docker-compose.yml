@@ -1,0 +1,12 @@
+services:
+  tickover:
+    build: .
+    ports:
+      - "127.0.0.1:8765:8765"   # only this computer; see README to share on your network
+    environment:
+      APP_TIMEZONE: ${APP_TIMEZONE:-}
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

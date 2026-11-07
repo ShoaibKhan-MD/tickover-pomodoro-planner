@@ -1,0 +1,139 @@
+name: Build desktop apps and publish release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m py_compile app.py launcher.py backup.py tools/generate_sounds.py
+      - name: Check frontend JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html = Path('static/index.html').read_text(encoding='utf-8')
+          start = html.rfind('<script>') + len('<script>')
+          end = html.find('</script>', start)
+          Path('/tmp/tickover.js').write_text(html[start:end], encoding='utf-8')
+          PY
+          node --check /tmp/tickover.js
+      - run: pytest -q
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install application and packaging dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Build Windows executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name "Tickover" `
+            --icon "assets/Tickover.ico" `
+            --add-data "static;static" `
+            --collect-all uvicorn `
+            --collect-all fastapi `
+            --collect-all starlette `
+            --collect-all multipart `
+            --collect-all tzdata `
+            --collect-all pydantic `
+            --collect-submodules pystray `
+            launcher.py
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item "dist/Tickover.exe" "release-assets/Tickover-Windows-x64.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tickover-Windows-x64
+          path: release-assets/Tickover-Windows-x64.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            arch: Apple-Silicon
+          - runner: macos-26-intel
+            arch: Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install application and packaging dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Create macOS icon
+        run: |
+          mkdir -p assets/Tickover.iconset
+          sips -z 16 16 assets/Tickover.png --out assets/Tickover.iconset/icon_16x16.png
+          sips -z 32 32 assets/Tickover.png --out assets/Tickover.iconset/icon_16x16@2x.png
+          sips -z 32 32 assets/Tickover.png --out assets/Tickover.iconset/icon_32x32.png
+          sips -z 64 64 assets/Tickover.png --out assets/Tickover.iconset/icon_32x32@2x.png
+          sips -z 128 128 assets/Tickover.png --out assets/Tickover.iconset/icon_128x128.png
+          sips -z 256 256 assets/Tickover.png --out assets/Tickover.iconset/icon_128x128@2x.png
+          sips -z 256 256 assets/Tickover.png --out assets/Tickover.iconset/icon_256x256.png
+          sips -z 512 512 assets/Tickover.png --out assets/Tickover.iconset/icon_256x256@2x.png
+          sips -z 512 512 assets/Tickover.png --out assets/Tickover.iconset/icon_512x512.png
+          sips -z 1024 1024 assets/Tickover.png --out assets/Tickover.iconset/icon_512x512@2x.png
+          iconutil -c icns assets/Tickover.iconset -o assets/Tickover.icns
+      - name: Build macOS application bundle
+        run: |
+          pyinstaller --noconfirm --clean "Tickover.spec"
+          mkdir -p dmg-stage
+          cp -R "dist/Tickover.app" dmg-stage/
+          ln -s /Applications dmg-stage/Applications
+          hdiutil create -volname "Tickover" -srcfolder dmg-stage -format UDZO -ov "Tickover-macOS-${{ matrix.arch }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tickover-macOS-${{ matrix.arch }}
+          path: Tickover-macOS-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    # Keep downloadable build artifacts available from Actions, but do not
+    # create a public release until the maintainer verifies audio redistribution rights.
+    if: startsWith(github.ref, 'refs/tags/') && vars.AUDIO_ASSETS_LICENSE_CONFIRMED == 'true'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --title "Tickover $GITHUB_REF_NAME" \
+            --generate-notes

@@ -1,0 +1,34 @@
+# Secrets and local user data
+.env
+.env.*.local
+data/
+backups/
+*.db
+*.db-wal
+*.db-shm
+agent_token
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Build output
+build/
+dist/
+*.dmg
+dmg-staging/
+*.spec.bak
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# Generated native macOS icon files
+assets/*.icns
+assets/*.iconset/
+
+# Local desktop build artifacts
+release/
+.venv-build/
