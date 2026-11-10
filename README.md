@@ -130,6 +130,7 @@ Optional. New to this? Start with the beginner guide: [Connect Tickover to an AI
 4. Dates use the `YYYY-MM-DD` format.
 
 Every change an assistant makes is listed in the agent activity history (the last 2,000 events are kept).
+![Agent activity](docs/screenshots/agent-activity-preview.png)
 
 ### For developers: the API
 
